@@ -5,7 +5,6 @@ services:
   - type: web
     name: dashbord-backend
     runtime: python
-    plan: free
     buildCommand: "pip install -r backend/requirements.txt && cd backend && alembic upgrade head"
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
@@ -46,7 +45,6 @@ services:
   - type: web
     name: dashbord-frontend
     runtime: static
-    plan: free
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
     routes:
@@ -67,4 +65,3 @@ databases:
   - name: dashbord-db
     databaseName: dashbord
     user: dashbord_user
-    plan: free
