@@ -65,6 +65,7 @@ lerna-debug.log*
 # IDE & OS
 .vscode/
 .idea/
+.vercel/
 *.suo
 *.ntvs*
 *.njsproj
