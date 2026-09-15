@@ -76,5 +76,6 @@ Thumbs.db
 
 # Logs & Temporary
 *.log
+.*.pid
 scratch/
 .tempmediaStorage/
