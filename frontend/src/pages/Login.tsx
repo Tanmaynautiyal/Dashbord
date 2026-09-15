@@ -76,7 +76,13 @@ export default function Login() {
       const nextPath = loggedInUser?.role?.toLowerCase() === 'admin' ? '/admin' : '/dashboard'
       navigate(nextPath)
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Invalid email or password.')
+      if (err?.response?.status === 503 || err?.response?.status === 502) {
+        setError('Cloud backend is waking up or suspended. Please check your Render dashboard.')
+      } else if (!err?.response && (err?.message === 'Network Error' || err?.code === 'ERR_NETWORK')) {
+        setError('Cannot connect to server. Please check your internet connection or backend server status.')
+      } else {
+        setError(err?.response?.data?.detail || 'Invalid email or password.')
+      }
     }
   }
 

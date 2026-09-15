@@ -11,13 +11,17 @@ DEFAULT_ADMIN_EMAIL = "admin@mail.com"
 DEFAULT_ADMIN_PASSWORD = "Mind@123"
 DEFAULT_ADMIN_NAME = "Admin"
 
+DEFAULT_USER_EMAIL = "user@mail.com"
+DEFAULT_USER_PASSWORD = "Mind@123"
+DEFAULT_USER_NAME = "Demo User"
+
 
 def ensure_default_admin() -> dict[str, bool | str]:
     Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
+        # 1. Ensure Admin Account
         admin = db.scalar(select(User).where(User.email == DEFAULT_ADMIN_EMAIL))
-
         if admin is None:
             admin = User(
                 name=DEFAULT_ADMIN_NAME,
@@ -27,26 +31,36 @@ def ensure_default_admin() -> dict[str, bool | str]:
                 is_active=True,
             )
             db.add(admin)
-            db.commit()
-            db.refresh(admin)
-            return {"created": True, "email": admin.email}
-
-        needs_update = False
-        if admin.role != UserRole.ADMIN:
+        else:
             admin.role = UserRole.ADMIN
-            needs_update = True
-        if admin.name != DEFAULT_ADMIN_NAME:
             admin.name = DEFAULT_ADMIN_NAME
-            needs_update = True
-        if not admin.is_active:
             admin.is_active = True
-            needs_update = True
-        if admin.password_hash == "" or admin.password_hash is None:
             admin.password_hash = hash_password(DEFAULT_ADMIN_PASSWORD)
-            needs_update = True
-        if needs_update:
-            db.commit()
 
-        return {"created": False, "email": admin.email}
+        # 2. Ensure Demo User Account
+        demo_user = db.scalar(select(User).where(User.email == DEFAULT_USER_EMAIL))
+        if demo_user is None:
+            demo_user = User(
+                name=DEFAULT_USER_NAME,
+                email=DEFAULT_USER_EMAIL,
+                password_hash=hash_password(DEFAULT_USER_PASSWORD),
+                role=UserRole.USER,
+                is_active=True,
+            )
+            db.add(demo_user)
+        else:
+            demo_user.role = UserRole.USER
+            demo_user.is_active = True
+            demo_user.password_hash = hash_password(DEFAULT_USER_PASSWORD)
+
+        # 3. Also ensure Tanmay's personal account has Mind@123 password
+        tanmay_user = db.scalar(select(User).where(User.email == "tanmaynautiyalnextstark@gmail.com"))
+        if tanmay_user:
+            tanmay_user.is_active = True
+            tanmay_user.password_hash = hash_password("Mind@123")
+
+        db.commit()
+        return {"created": True, "admin": DEFAULT_ADMIN_EMAIL, "user": DEFAULT_USER_EMAIL}
     finally:
         db.close()
+

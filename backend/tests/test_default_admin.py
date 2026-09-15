@@ -13,14 +13,14 @@ from app.models.user import User
 def test_ensure_default_admin_creates_admin_account():
     db = SessionLocal()
     try:
-        db.query(User).filter(User.email == 'admin@dev.prod').delete()
+        db.query(User).filter(User.email == 'admin@mail.com').delete()
         db.commit()
 
         ensure_default_admin()
 
-        admin = db.query(User).filter(User.email == 'admin@dev.prod').one()
+        admin = db.query(User).filter(User.email == 'admin@mail.com').one()
         assert admin.role.value == 'admin'
         assert admin.is_active is True
-        assert admin.name == 'System Admin'
+        assert admin.name == 'Admin'
     finally:
         db.close()
