@@ -18,11 +18,13 @@ export interface LoginResponse {
 export interface RegisterOtpResponse {
   message: string
   email: string
+  dev_otp?: string
 }
 
 export interface ForgotPasswordResponse {
   message: string
   email: string
+  dev_otp?: string
 }
 
 export interface SMTPConfigInfo {

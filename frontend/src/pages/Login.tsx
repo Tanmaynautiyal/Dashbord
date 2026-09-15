@@ -113,6 +113,9 @@ export default function Login() {
       const res = await authService.forgotPassword(forgotEmail.trim())
       setForgotInfo(res.message || `A verification code has been sent directly to ${forgotEmail}. Please check your inbox.`)
       setForgotStep('reset')
+      if (res.dev_otp) {
+        setForgotOtp(res.dev_otp)
+      }
     } catch (err: any) {
       setForgotError(err?.response?.data?.detail || 'Failed to send reset code. Please try again.')
     } finally {

@@ -54,6 +54,7 @@ export default function Register() {
   const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [devOtpNotice, setDevOtpNotice] = useState<string | null>(null)
 
   const { isAuthenticated, setSession } = useAuth()
   const navigate = useNavigate()
@@ -88,9 +89,15 @@ export default function Register() {
 
     setLoading(true)
     try {
-      await authService.requestRegisterOtp(name.trim(), email.trim(), password)
+      const res = await authService.requestRegisterOtp(name.trim(), email.trim(), password)
       setStep('otp')
       setResendCooldown(45)
+      if (res.dev_otp) {
+        setOtp(res.dev_otp)
+        setDevOtpNotice(res.dev_otp)
+      } else {
+        setDevOtpNotice(null)
+      }
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Failed to send verification code. Please check your details.')
     } finally {
@@ -125,8 +132,14 @@ export default function Register() {
     setError('')
     setResending(true)
     try {
-      await authService.requestRegisterOtp(name.trim(), email.trim(), password)
+      const res = await authService.requestRegisterOtp(name.trim(), email.trim(), password)
       setResendCooldown(45)
+      if (res.dev_otp) {
+        setOtp(res.dev_otp)
+        setDevOtpNotice(res.dev_otp)
+      } else {
+        setDevOtpNotice(null)
+      }
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Could not resend OTP code. Please try again.')
     } finally {
@@ -300,10 +313,20 @@ export default function Register() {
               </form>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-5">
-                {/* Only show Mail sent notice */}
-                <div className="py-2.5 px-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center text-xs font-semibold text-foreground">
-                  Mail sent on this mail: <span className="font-bold text-purple-600 dark:text-purple-400">{email}</span>
-                </div>
+                {/* Mail sent notice or dev OTP notice */}
+                {devOtpNotice ? (
+                  <div className="py-2.5 px-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    ⚡ Dev / Preview Mode: Verification code is{' '}
+                    <span className="font-mono font-bold tracking-widest text-sm bg-amber-500/20 px-2 py-0.5 rounded text-foreground">
+                      {devOtpNotice}
+                    </span>{' '}
+                    (Auto-filled below). Click Verify to complete!
+                  </div>
+                ) : (
+                  <div className="py-2.5 px-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center text-xs font-semibold text-foreground">
+                    Mail sent on this mail: <span className="font-bold text-purple-600 dark:text-purple-400">{email}</span>
+                  </div>
+                )}
 
                 <div className="space-y-2 text-center">
                   <div className="flex items-center justify-between">
