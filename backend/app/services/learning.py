@@ -493,7 +493,8 @@ def get_or_create_daily_learning_content(
     # Deterministic index for this user and calendar day
     day_ordinal = target_date.toordinal()
     if user:
-        user_seed = int(user.id.hex[:6], 16)
+        uid_hex = getattr(user.id, "hex", str(user.id).replace("-", ""))
+        user_seed = int(uid_hex[:6], 16)
         topic_index = (day_ordinal + user_seed) % len(topics)
     else:
         topic_index = day_ordinal % len(topics)
@@ -536,7 +537,11 @@ def get_daily_recommended_topics(
 
     is_new = is_user_beginner_or_new(db, user)
     day_seed = target_date.toordinal()
-    user_seed = int(user.id.hex[:6], 16) if user else 42
+    if user:
+        uid_hex = getattr(user.id, "hex", str(user.id).replace("-", ""))
+        user_seed = int(uid_hex[:6], 16)
+    else:
+        user_seed = 42
 
     rng = random.Random(user_seed + day_seed * 7 + shuffle_offset * 101)
 
