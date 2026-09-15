@@ -95,12 +95,9 @@ async def request_registration_otp(
         name=request_data.name,
     )
 
-    dev_otp = email_result.get("otp") if email_result.get("dev_mode") else None
-
     return RegisterInitiateResponse(
         message=email_result.get("message", f"Verification code sent directly to {request_data.email}."),
         email=request_data.email,
-        dev_otp=dev_otp,
     )
 
 
@@ -286,12 +283,9 @@ async def forgot_password(
         name=user.name,
     )
 
-    dev_otp = email_result.get("otp") if email_result.get("dev_mode") else None
-
     return ForgotPasswordResponse(
         message=email_result.get("message", "Password reset code sent to your email."),
         email=request_data.email,
-        dev_otp=dev_otp,
     )
 
 

@@ -76,7 +76,6 @@ class RegisterInitiateRequest(BaseModel):
 class RegisterInitiateResponse(BaseModel):
     message: str
     email: str
-    dev_otp: str | None = None
 
 
 class RegisterVerifyRequest(BaseModel):
@@ -106,7 +105,6 @@ class ForgotPasswordRequest(BaseModel):
 class ForgotPasswordResponse(BaseModel):
     message: str
     email: str
-    dev_otp: str | None = None
 
 
 class ResetPasswordRequest(BaseModel):

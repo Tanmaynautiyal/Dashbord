@@ -204,18 +204,15 @@ async def send_otp_email(
     name: str | None = None,
 ) -> dict[str, Any]:
     """
-    Sends OTP email directly to the recipient's personal inbox via FastAPI-Mail if SMTP is configured.
-    If SMTP is not configured or email delivery fails, gracefully provides the verification code
-    in dev_mode so the user is never blocked from registration or password reset.
+    Sends OTP email directly to the recipient's personal inbox via FastAPI-Mail.
+    Never exposes the OTP code in API responses or on the dashboard.
     """
     if not is_smtp_configured():
-        logger.info(f"SMTP not configured. Verification code generated for {email}: {otp}")
-        return {
-            "success": True,
-            "dev_mode": True,
-            "otp": otp,
-            "message": f"Verification code: {otp} (SMTP not configured in server environment).",
-        }
+        logger.error(f"Cannot send OTP to {email}: SMTP credentials are not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email delivery service is not configured. Please verify SMTP settings.",
+        )
 
     subject = (
         f"[{otp}] Your Verification Code - Developer Productivity"
@@ -234,18 +231,15 @@ async def send_otp_email(
             subtype=MessageType.html,
         )
         await fm.send_message(message)
-        logger.info(f"Successfully sent OTP email directly to {email} via SMTP ({conf.MAIL_SERVER})")
+        logger.info(f"Successfully sent OTP email directly to personal inbox of {email} via SMTP ({conf.MAIL_SERVER})")
         return {
             "success": True,
-            "dev_mode": False,
-            "message": f"Verification code has been sent directly to {email}. Please check your inbox (and spam folder).",
+            "message": f"Verification code has been sent directly to your email {email}. Please check your inbox (and spam folder).",
         }
     except Exception as exc:
         err_str = str(exc)
-        logger.warning(f"Failed to send email via SMTP to {email}: {err_str}. Falling back to dev verification code.")
-        return {
-            "success": True,
-            "dev_mode": True,
-            "otp": otp,
-            "message": f"Email delivery unavailable. Your verification code is {otp}.",
-        }
+        logger.error(f"Failed to send email via SMTP to {email}: {err_str}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to deliver email to {email}. Please ensure your email is correct.",
+        )
