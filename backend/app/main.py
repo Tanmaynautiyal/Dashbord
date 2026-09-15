@@ -28,6 +28,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/health")
+def health_check() -> dict:
+    return {"status": "ok", "service": "dashboard-api"}
+
+
+@app.get("/")
+def root_check() -> dict:
+    return {"status": "ok", "service": "dashboard-api"}
+
 # Root level routes (e.g. /auth/login)
 app.include_router(auth_router)
 app.include_router(dashboard_router)
@@ -41,6 +51,8 @@ app.include_router(smtp_router)
 
 # /api level routes (e.g. /api/auth/login)
 api_router = APIRouter(prefix="/api")
+api_router.add_api_route("/health", health_check, methods=["GET"])
+api_router.add_api_route("/", root_check, methods=["GET"])
 api_router.include_router(auth_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(scrape_router)
