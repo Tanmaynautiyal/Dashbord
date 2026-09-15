@@ -52,16 +52,16 @@ async def send_message(
     )
     db.add(user_msg)
 
-        try:
-            log_activity(
-                db,
-                user=current_user,
-                action="ai_chat",
-                resource_type="ai_tutor",
-                resource_id=payload.content[:50],
-            )
-        except Exception:
-            pass
+    try:
+        log_activity(
+            db,
+            user=current_user,
+            action="ai_chat",
+            resource_type="ai_tutor",
+            resource_id=payload.content[:50],
+        )
+    except Exception:
+        pass
     
     # Fetch AI Tools to provide context
     tools_query = select(AITool).where(AITool.is_active == True).limit(20)
