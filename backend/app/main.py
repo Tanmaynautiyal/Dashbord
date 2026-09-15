@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin import router as admin_router
@@ -28,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Root level routes (e.g. /auth/login)
 app.include_router(auth_router)
 app.include_router(dashboard_router)
 app.include_router(scrape_router)
@@ -37,3 +38,16 @@ app.include_router(chat_router)
 app.include_router(quiz_router)
 app.include_router(notifications_router)
 app.include_router(smtp_router)
+
+# /api level routes (e.g. /api/auth/login)
+api_router = APIRouter(prefix="/api")
+api_router.include_router(auth_router)
+api_router.include_router(dashboard_router)
+api_router.include_router(scrape_router)
+api_router.include_router(admin_router)
+api_router.include_router(tools_router)
+api_router.include_router(chat_router)
+api_router.include_router(quiz_router)
+api_router.include_router(notifications_router)
+api_router.include_router(smtp_router)
+app.include_router(api_router)
