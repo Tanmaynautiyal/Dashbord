@@ -53,10 +53,20 @@ def ensure_default_admin() -> dict[str, bool | str]:
             demo_user.is_active = True
             demo_user.password_hash = hash_password(DEFAULT_USER_PASSWORD)
 
-        # 3. Also ensure Tanmay's personal account has Mind@123 password
+        # 3. Also ensure Tanmay's personal account exists with Mind@123 password
         tanmay_user = db.scalar(select(User).where(User.email == "tanmaynautiyalnextstark@gmail.com"))
-        if tanmay_user:
+        if tanmay_user is None:
+            tanmay_user = User(
+                name="Tanmay Nautiyal",
+                email="tanmaynautiyalnextstark@gmail.com",
+                password_hash=hash_password("Mind@123"),
+                role=UserRole.ADMIN,
+                is_active=True,
+            )
+            db.add(tanmay_user)
+        else:
             tanmay_user.is_active = True
+            tanmay_user.role = UserRole.ADMIN
             tanmay_user.password_hash = hash_password("Mind@123")
 
         db.commit()
