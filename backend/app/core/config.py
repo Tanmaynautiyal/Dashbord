@@ -10,7 +10,7 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     # Development defaults provided to allow running without env file.
-    database_url: str = "sqlite+aiosqlite:///./dev.db"
+    database_url: str = "sqlite:////tmp/dashboard.db"
     jwt_secret_key: SecretStr = SecretStr("dev-secret")
     access_token_expire_minutes: int = Field(default=30, gt=0)
     ai_api_key: SecretStr = SecretStr("")

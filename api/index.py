@@ -12,3 +12,10 @@ if not os.environ.get("DATABASE_URL"):
     os.environ["DATABASE_URL"] = "sqlite:////tmp/dashboard.db"
 
 from app.main import app
+from app.database.seed import ensure_default_admin
+
+try:
+    ensure_default_admin()
+except Exception as e:
+    print("Database init:", e)
+
