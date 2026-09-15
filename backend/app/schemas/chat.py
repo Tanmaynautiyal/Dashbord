@@ -13,7 +13,7 @@ class ChatMessageCreate(ChatMessageBase):
 
 class ChatMessageOut(ChatMessageBase):
     id: UUID
-    user_id: UUID
+    user_id: UUID | None = None
     sender: SenderType
     created_at: datetime
 

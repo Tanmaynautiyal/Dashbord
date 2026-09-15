@@ -1,13 +1,14 @@
-from typing import List
+from typing import List, Optional
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 
 from app.dependencies.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies.auth import get_optional_current_user
 from app.models.chatbot import ChatMessage, SenderType
 from app.models.user import User
 from app.models.ai_tool import AITool
@@ -23,9 +24,12 @@ logger = logging.getLogger(__name__)
 @router.get("/history", response_model=List[ChatMessageOut])
 def get_chat_history(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
     limit: int = 50,
 ):
+    if current_user is None:
+        return []
+
     query = (
         select(ChatMessage)
         .where(ChatMessage.user_id == current_user.id)
@@ -40,28 +44,30 @@ def get_chat_history(
 async def send_message(
     payload: ChatMessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_current_user),
 ):
     settings = get_settings()
-    
-    # Save user message
-    user_msg = ChatMessage(
-        user_id=current_user.id,
-        sender=SenderType.USER,
-        content=payload.content
-    )
-    db.add(user_msg)
 
-    try:
-        log_activity(
-            db,
-            user=current_user,
-            action="ai_chat",
-            resource_type="ai_tutor",
-            resource_id=payload.content[:50],
+    user_msg = None
+    if current_user:
+        # Save user message
+        user_msg = ChatMessage(
+            user_id=current_user.id,
+            sender=SenderType.USER,
+            content=payload.content
         )
-    except Exception:
-        pass
+        db.add(user_msg)
+
+        try:
+            log_activity(
+                db,
+                user=current_user,
+                action="ai_chat",
+                resource_type="ai_tutor",
+                resource_id=payload.content[:50],
+            )
+        except Exception:
+            pass
     
     # Fetch AI Tools to provide context
     tools_query = select(AITool).where(AITool.is_active == True).limit(20)
@@ -70,7 +76,9 @@ async def send_message(
     
     tools_context = "Available tools for developers:\n"
     for tool in tools:
-        tools_context += f"- {tool.name} ({tool.category}): {tool.description} [{tool.pricing_type}]\n"
+        category_str = tool.category.value if hasattr(tool.category, "value") else str(tool.category)
+        pricing_str = tool.pricing_type.value if hasattr(tool.pricing_type, "value") else str(tool.pricing_type)
+        tools_context += f"- {tool.name} ({category_str}): {tool.description} [{pricing_str}]\n"
 
     system_prompt = f"""You are a concise and helpful coding assistant for a Developer Productivity Dashboard.
 Your role is to assist the user with coding and recommend AI tools.
@@ -85,30 +93,32 @@ CRITICAL INSTRUCTIONS:
 {tools_context}
 """
 
-    # Fetch recent chat history to provide conversation context
-    history_query = (
-        select(ChatMessage)
-        .where(ChatMessage.user_id == current_user.id)
-        .order_by(ChatMessage.created_at.desc())
-        .limit(10)
-    )
-    history_result = db.execute(history_query)
-    history_messages = history_result.scalars().all()[::-1]
-
     messages_payload = [{"role": "system", "content": system_prompt}]
-    for msg in history_messages:
-        role = "user" if msg.sender == SenderType.USER else "assistant"
-        messages_payload.append({"role": role, "content": msg.content})
+
+    if current_user:
+        # Fetch recent chat history to provide conversation context
+        history_query = (
+            select(ChatMessage)
+            .where(ChatMessage.user_id == current_user.id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(10)
+        )
+        history_result = db.execute(history_query)
+        history_messages = history_result.scalars().all()[::-1]
+
+        for msg in history_messages:
+            role = "user" if msg.sender == SenderType.USER else "assistant"
+            messages_payload.append({"role": role, "content": msg.content})
 
     # Add the current message
     messages_payload.append({"role": "user", "content": payload.content})
 
-    bot_reply = "I'm sorry, I couldn't process that right now. Please check your API key configuration."
+    bot_reply = "I'm sorry, I couldn't process that right now. Please check back in a moment."
 
     try:
-        api_key = settings.ai_api_key.get_secret_value()
+        api_key = settings.ai_api_key.get_secret_value() if hasattr(settings.ai_api_key, "get_secret_value") else str(settings.ai_api_key or "")
         if not api_key:
-            raise ValueError("API Key is missing")
+            raise ValueError("AI API key is missing")
         
         client = openai.AsyncOpenAI(
             api_key=api_key,
@@ -116,7 +126,7 @@ CRITICAL INSTRUCTIONS:
         )
         
         response = await client.chat.completions.create(
-            model=settings.ai_model, # Use model from settings
+            model=settings.ai_model,
             messages=messages_payload,
             max_tokens=500,
         )
@@ -125,19 +135,35 @@ CRITICAL INSTRUCTIONS:
             
     except Exception as e:
         logger.error(f"Error calling OpenAI API: {str(e)}")
-        # We still save the error message so the user knows
-        bot_reply = f"Error: Could not get response from AI. Please make sure the API key is valid in the .env file. Details: {str(e)}"
+        bot_reply = f"DevAI Assistant: I'm currently unable to connect to the AI model ({str(e)[:50]}). Please try again shortly."
     
-    # Save bot message
-    bot_msg = ChatMessage(
-        user_id=current_user.id,
-        sender=SenderType.BOT,
-        content=bot_reply
-    )
-    db.add(bot_msg)
-    
-    db.commit()
-    db.refresh(user_msg)
-    db.refresh(bot_msg)
-    
-    return [user_msg, bot_msg]
+    if current_user and user_msg:
+        bot_msg = ChatMessage(
+            user_id=current_user.id,
+            sender=SenderType.BOT,
+            content=bot_reply
+        )
+        db.add(bot_msg)
+        
+        db.commit()
+        db.refresh(user_msg)
+        db.refresh(bot_msg)
+        return [user_msg, bot_msg]
+    else:
+        now = datetime.now(timezone.utc)
+        return [
+            ChatMessageOut(
+                id=uuid4(),
+                user_id=None,
+                sender=SenderType.USER,
+                content=payload.content,
+                created_at=now,
+            ),
+            ChatMessageOut(
+                id=uuid4(),
+                user_id=None,
+                sender=SenderType.BOT,
+                content=bot_reply,
+                created_at=now,
+            ),
+        ]

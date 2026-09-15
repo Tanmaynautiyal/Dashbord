@@ -78,9 +78,17 @@ export default function ChatWidget({
         const existingIds = new Set(withoutTemp.map(m => m.id));
         return [...withoutTemp, ...newMessages.filter(m => !existingIds.has(m.id))];
       });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     } catch (error) {
       console.error(error);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          sender: 'bot',
+          content: '⚠️ Unable to reach DevAI Companion at this moment. Please try again.',
+          created_at: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
