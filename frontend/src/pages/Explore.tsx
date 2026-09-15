@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -8,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Input, Button, Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../ui'
 import { toolsService, type AITool } from '../services/toolsService'
+import { useAuth } from '../ui/AuthContext'
 import ChatWidget from '../components/ChatWidget'
 
 const CATEGORIES = ['All', 'AI Chatbot', 'Coding Assistant', 'Image Generation', 'Video Generation', 'Developer Tool', 'AI Agent']
@@ -64,14 +66,23 @@ function Toast({ message, onDone }: { message: string; onDone: () => void }) {
   )
 }
 
-/* ─── Tool Modal ─────────────────────────────────────────────────────────── */
 function ToolModal({ tool, bookmarked, onToggleBookmark, onClose }: {
   tool: AITool
   bookmarked: boolean
   onToggleBookmark: () => void
   onClose: () => void
 }) {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [imgError, setImgError] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      onClose()
+      navigate('/login')
+    }
+  }, [isAuthenticated, navigate, onClose])
+
   const color = AVATAR_COLORS[tool.category] || 'from-violet-600 to-purple-800'
   const initials = tool.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   const autoQuery = `Give me a quick overview of "${tool.name}" as a developer tool: what it does, main features, and when to use it.`
@@ -275,6 +286,8 @@ function ToolCard({
 }
 
 export default function Explore() {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [selectedTool, setSelectedTool] = useState<AITool | null>(null)
@@ -302,7 +315,19 @@ export default function Explore() {
   const tools: AITool[] = data?.items ?? (isError ? FALLBACK_TOOLS as any : [])
   const usingFallback = isError
 
+  const handleViewDetails = (tool: AITool) => {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+    setSelectedTool(tool)
+  }
+
   const toggleBookmark = (toolId: string, toolName: string) => {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
     setBookmarks(prev => {
       const next = new Set(prev)
       if (next.has(toolId)) {
@@ -419,7 +444,7 @@ export default function Explore() {
                   index={i}
                   bookmarked={bookmarks.has(tool.id)}
                   onBookmark={() => toggleBookmark(tool.id, tool.name)}
-                  onViewDetails={() => setSelectedTool(tool)}
+                  onViewDetails={() => handleViewDetails(tool)}
                 />
               ))}
             </div>

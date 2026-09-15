@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Send, User, Maximize2, Minimize2, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Bot, Send, User, Maximize2, Minimize2, Sparkles, Lock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '../ui';
 import { chatService, type ChatMessage } from '../services/chatService';
+import { useAuth } from '../ui/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface ChatWidgetProps {
@@ -21,6 +23,8 @@ export default function ChatWidget({
   heightClass = 'h-[420px]',
 }: ChatWidgetProps) {
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,20 +33,29 @@ export default function ChatWidget({
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load history on mount
+  // If user is not logged in, move direct to login
   useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Load history on mount if authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
     if (!initialQuery) {
       chatService.getHistory().then(setMessages).catch(console.error);
     }
-  }, [initialQuery]);
+  }, [initialQuery, isAuthenticated]);
 
   // Auto-send the initial query once on mount (for topic context)
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (initialQuery && !autoSentDone) {
       setAutoSentDone(true);
       sendMessage(initialQuery);
     }
-  }, [initialQuery, autoSentDone]);
+  }, [initialQuery, autoSentDone, isAuthenticated]);
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,6 +70,10 @@ export default function ChatWidget({
   }, [fullscreen, embedded]);
 
   const sendMessage = async (text: string) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     const userContent = text.trim();
     if (!userContent) return;
     setInput('');
@@ -96,9 +113,37 @@ export default function ChatWidget({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     if (!input.trim() || loading) return;
     sendMessage(input);
   };
+
+  if (!isAuthenticated) {
+    return (
+      <Card className={`glass-card flex flex-col items-center justify-center text-center p-8 border border-purple-500/25 shadow-xl ${
+        embedded ? 'h-full rounded-2xl border-none shadow-none bg-transparent' : `${heightClass} rounded-3xl`
+      }`}>
+        <div className="w-14 h-14 rounded-2xl bg-purple-500/15 flex items-center justify-center text-purple-600 dark:text-purple-400 mb-3 shadow-inner">
+          <Lock className="w-7 h-7" />
+        </div>
+        <h3 className="text-base font-extrabold text-foreground mb-1">
+          Login Required
+        </h3>
+        <p className="text-xs text-muted-foreground max-w-xs mb-5">
+          You must be logged in to chat with DevAI Companion. Please log in to continue.
+        </p>
+        <Button
+          onClick={() => navigate('/login')}
+          className="rounded-2xl px-6 py-2.5 font-bold text-xs sm:text-sm shadow-md shadow-purple-500/25 bg-gradient-to-r from-violet-600 to-purple-600 text-white cursor-pointer"
+        >
+          Go to Login
+        </Button>
+      </Card>
+    );
+  }
 
   const inner = (
     <Card className={`glass-card flex flex-col border border-purple-500/25 shadow-xl transition-all duration-300 ${

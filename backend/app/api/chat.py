@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 
 from app.dependencies.database import get_db
-from app.dependencies.auth import get_optional_current_user
+from app.dependencies.auth import get_current_user
 from app.models.chatbot import ChatMessage, SenderType
 from app.models.user import User
 from app.models.ai_tool import AITool
@@ -24,12 +24,9 @@ logger = logging.getLogger(__name__)
 @router.get("/history", response_model=List[ChatMessageOut])
 def get_chat_history(
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
     limit: int = 50,
 ):
-    if current_user is None:
-        return []
-
     query = (
         select(ChatMessage)
         .where(ChatMessage.user_id == current_user.id)
@@ -44,19 +41,16 @@ def get_chat_history(
 async def send_message(
     payload: ChatMessageCreate,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_optional_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     settings = get_settings()
 
-    user_msg = None
-    if current_user:
-        # Save user message
-        user_msg = ChatMessage(
-            user_id=current_user.id,
-            sender=SenderType.USER,
-            content=payload.content
-        )
-        db.add(user_msg)
+    user_msg = ChatMessage(
+        user_id=current_user.id,
+        sender=SenderType.USER,
+        content=payload.content
+    )
+    db.add(user_msg)
 
         try:
             log_activity(
@@ -95,20 +89,19 @@ CRITICAL INSTRUCTIONS:
 
     messages_payload = [{"role": "system", "content": system_prompt}]
 
-    if current_user:
-        # Fetch recent chat history to provide conversation context
-        history_query = (
-            select(ChatMessage)
-            .where(ChatMessage.user_id == current_user.id)
-            .order_by(ChatMessage.created_at.desc())
-            .limit(10)
-        )
-        history_result = db.execute(history_query)
-        history_messages = history_result.scalars().all()[::-1]
+    # Fetch recent chat history to provide conversation context
+    history_query = (
+        select(ChatMessage)
+        .where(ChatMessage.user_id == current_user.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(10)
+    )
+    history_result = db.execute(history_query)
+    history_messages = history_result.scalars().all()[::-1]
 
-        for msg in history_messages:
-            role = "user" if msg.sender == SenderType.USER else "assistant"
-            messages_payload.append({"role": role, "content": msg.content})
+    for msg in history_messages:
+        role = "user" if msg.sender == SenderType.USER else "assistant"
+        messages_payload.append({"role": role, "content": msg.content})
 
     # Add the current message
     messages_payload.append({"role": "user", "content": payload.content})
@@ -137,33 +130,14 @@ CRITICAL INSTRUCTIONS:
         logger.error(f"Error calling OpenAI API: {str(e)}")
         bot_reply = f"DevAI Assistant: I'm currently unable to connect to the AI model ({str(e)[:50]}). Please try again shortly."
     
-    if current_user and user_msg:
-        bot_msg = ChatMessage(
-            user_id=current_user.id,
-            sender=SenderType.BOT,
-            content=bot_reply
-        )
-        db.add(bot_msg)
-        
-        db.commit()
-        db.refresh(user_msg)
-        db.refresh(bot_msg)
-        return [user_msg, bot_msg]
-    else:
-        now = datetime.now(timezone.utc)
-        return [
-            ChatMessageOut(
-                id=uuid4(),
-                user_id=None,
-                sender=SenderType.USER,
-                content=payload.content,
-                created_at=now,
-            ),
-            ChatMessageOut(
-                id=uuid4(),
-                user_id=None,
-                sender=SenderType.BOT,
-                content=bot_reply,
-                created_at=now,
-            ),
-        ]
+    bot_msg = ChatMessage(
+        user_id=current_user.id,
+        sender=SenderType.BOT,
+        content=bot_reply
+    )
+    db.add(bot_msg)
+    
+    db.commit()
+    db.refresh(user_msg)
+    db.refresh(bot_msg)
+    return [user_msg, bot_msg]
