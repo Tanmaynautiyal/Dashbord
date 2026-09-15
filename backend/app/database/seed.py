@@ -12,13 +12,19 @@ from app.models.content import Category, LearningTopic, Technology, DailyLearnin
 from app.models.quiz import DailyQuiz, DailyQuizQuestion
 import app.models  # noqa: F401 Ensure all models are registered
 
+import uuid
+
 DEFAULT_ADMIN_EMAIL = "admin@mail.com"
 DEFAULT_ADMIN_PASSWORD = "Mind@123"
 DEFAULT_ADMIN_NAME = "Admin"
+ADMIN_UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 DEFAULT_USER_EMAIL = "user@mail.com"
 DEFAULT_USER_PASSWORD = "Mind@123"
 DEFAULT_USER_NAME = "Demo User"
+DEMO_USER_UUID = uuid.UUID("00000000-0000-0000-0000-000000000002")
+
+TANMAY_USER_UUID = uuid.UUID("00000000-0000-0000-0000-000000000003")
 
 
 def ensure_default_admin() -> dict[str, bool | str]:
@@ -29,6 +35,7 @@ def ensure_default_admin() -> dict[str, bool | str]:
         admin = db.scalar(select(User).where(User.email == DEFAULT_ADMIN_EMAIL))
         if admin is None:
             admin = User(
+                id=ADMIN_UUID,
                 name=DEFAULT_ADMIN_NAME,
                 email=DEFAULT_ADMIN_EMAIL,
                 password_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
@@ -46,6 +53,7 @@ def ensure_default_admin() -> dict[str, bool | str]:
         demo_user = db.scalar(select(User).where(User.email == DEFAULT_USER_EMAIL))
         if demo_user is None:
             demo_user = User(
+                id=DEMO_USER_UUID,
                 name=DEFAULT_USER_NAME,
                 email=DEFAULT_USER_EMAIL,
                 password_hash=hash_password(DEFAULT_USER_PASSWORD),
@@ -62,6 +70,7 @@ def ensure_default_admin() -> dict[str, bool | str]:
         tanmay_user = db.scalar(select(User).where(User.email == "tanmaynautiyalnextstark@gmail.com"))
         if tanmay_user is None:
             tanmay_user = User(
+                id=TANMAY_USER_UUID,
                 name="Tanmay Nautiyal",
                 email="tanmaynautiyalnextstark@gmail.com",
                 password_hash=hash_password("Mind@123"),

@@ -36,6 +36,8 @@ def get_current_user(
 
     user = db.get(User, user_id)
     if user is None:
+        user = db.scalar(select(User).where((User.id == str(user_id)) | (User.id == user_id)))
+    if user is None:
         raise credentials_exception
 
     if not user.is_active:
